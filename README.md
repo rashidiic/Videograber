@@ -1,4 +1,4 @@
-# 🎵 InstaSoundSaveBot
+# 🎵 Videograber
 
 A Telegram bot that accepts a video URL, downloads media with **yt-dlp**, extracts **MP3** audio with **ffmpeg**, uploads it to a (currently dummy) HTTP endpoint, and replies with a neat processing report. 🚀
 
