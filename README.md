@@ -1,183 +1,197 @@
-# InstaSoundSaveBot
+# 🎵 InstaSoundSaveBot
 
-A Telegram bot that accepts a video URL, downloads the media with `yt-dlp`, extracts MP3 audio with `ffmpeg`, sends the MP3 to a dummy HTTP endpoint, and returns a formatted processing report to the user.
+A Telegram bot that accepts a video URL, downloads media with **yt-dlp**, extracts **MP3** audio with **ffmpeg**, uploads it to a (currently dummy) HTTP endpoint, and replies with a neat processing report. 🚀
 
-## What This Project Does
+---
 
-The bot is designed as a pipeline:
+## ✨ What This Project Does
 
-1. User sends a message in Telegram that contains a URL.
-2. Bot extracts and validates the URL.
-3. Bot downloads the source media file.
-4. Bot converts downloaded media to MP3.
-5. Bot uploads MP3 to a remote endpoint (currently a placeholder endpoint).
-6. Bot returns a formatted result summary (duration, confidence, transcription, and audio metadata).
+Think of the bot as a small async pipeline:
+
+1. 💬 You send a Telegram message containing a URL
+2. 🔎 The bot extracts & validates the URL
+3. ⬇️ The bot downloads the source media file
+4. 🎚️ The bot converts the downloaded media to MP3
+5. ☁️ The bot uploads the MP3 to a remote endpoint *(currently a placeholder)*
+6. 🧾 The bot returns a formatted summary (duration, confidence, transcription, and audio metadata)
+
+### 🧪 Mocked API behavior
 
 The current API integration is intentionally mocked at the response level:
 
-- The upload request is sent to the configured endpoint.
-- The endpoint response body is ignored.
-- The bot returns deterministic mock data from `src/services/mock_data.py`.
+- 📤 The upload request is sent to the configured endpoint
+- 🙈 The endpoint response body is ignored
+- 🧩 The bot returns deterministic mock data from `src/services/mock_data.py`
 
-## High-Level Architecture
+---
+
+## 🧱 High-Level Architecture
 
 - `src/bot/main.py`
-  - Application bootstrap.
-  - Logging setup.
-  - Telegram app construction.
-  - Handler registration.
-  - Global error handler registration.
+  - App bootstrap
+  - Logging setup
+  - Telegram app construction
+  - Handler registration
+  - Global error handler
 
 - `src/bot/handlers/start.py`
-  - `/start` and `/help` commands.
-  - Sends onboarding/help text.
+  - `/start` and `/help` commands
+  - Sends onboarding/help text
 
 - `src/bot/handlers/url_handler.py`
-  - Handles regular text messages.
-  - URL extraction and validation.
-  - Orchestrates download, conversion, upload, and response formatting.
+  - Handles regular text messages
+  - URL extraction + validation
+  - Orchestrates download → convert → upload → format reply
 
 - `src/bot/handlers/errors.py`
-  - Global fallback for uncaught exceptions.
-  - Sends safe user-facing error message.
+  - Global fallback for uncaught exceptions
+  - Sends a safe user-facing error message
 
 - `src/services/downloader.py`
-  - Uses `yt-dlp` in a worker thread (`run_in_executor`) to avoid blocking the event loop.
+  - Uses `yt-dlp` in a worker thread (`run_in_executor`) to avoid blocking the event loop
 
 - `src/services/converter.py`
-  - Uses `ffmpeg` via `subprocess.run` in a worker thread to produce MP3 output.
+  - Uses `ffmpeg` via `subprocess.run` in a worker thread to produce MP3 output
 
 - `src/services/api_client.py`
-  - Sends multipart upload with `httpx.AsyncClient`.
-  - Handles HTTP errors as non-fatal.
-  - Returns mock result payload.
+  - Sends multipart upload with `httpx.AsyncClient`
+  - Treats HTTP errors as non-fatal
+  - Returns a mock result payload
 
 - `src/utils/formatters.py`
-  - Creates user-facing multiline report.
+  - Builds the user-facing multiline report
 
 - `src/utils/url_validator.py`
-  - URL regex extraction and structural validation via `urllib.parse`.
+  - URL regex extraction + structural validation via `urllib.parse`
 
 - `src/bot/config.py`
-  - Environment-driven settings via `pydantic-settings`.
+  - Environment-driven settings via `pydantic-settings`
 
-## Runtime Flow in Detail
+---
 
-### 1. Startup
+## 🔄 Runtime Flow (In Detail)
 
-- Entry point: `python -m bot` (`src/bot/__main__.py`).
-- `Settings()` reads environment variables from `.env`.
-- Logging is configured using `setup_logging(log_level)`.
-- Temp directory is created if missing (`tmp_dir.mkdir(parents=True, exist_ok=True)`).
-- Telegram polling starts with concurrent updates enabled.
+### 1) 🚦 Startup
 
-### 2. Message Handling
+- Entry point: `python -m bot` (`src/bot/__main__.py`)
+- `Settings()` loads environment variables (optionally from `.env`)
+- Logging is configured using `setup_logging(log_level)`
+- Temp directory is created if missing (`tmp_dir.mkdir(parents=True, exist_ok=True)`)
+- Telegram polling starts with concurrent updates enabled
 
-- `URLHandler` processes text messages that are not commands.
-- The first URL-like token is extracted with regex.
-- If no URL is found, bot sends help text.
-- If URL is invalid, bot asks for a proper `http://` or `https://` URL.
+### 2) 📨 Message Handling
 
-### 3. Download Stage
+- `URLHandler` processes text messages that are not commands
+- The first URL-like token is extracted with regex
+- If no URL is found, the bot sends help text
+- If URL is invalid, the bot asks for a proper `http://` or `https://` URL
+
+### 3) ⬇️ Download Stage
 
 - `download_video(url, output_dir)` calls `yt-dlp` with:
   - `format=bestaudio/best`
   - output template using media ID and extension
   - quiet/no-warnings mode
-- After download, file existence is checked.
+- After download, the file is checked for existence
 
-### 4. Conversion Stage
+### 4) 🎛️ Conversion Stage
 
 - `convert_to_mp3(video_path, output_dir)` runs:
   - `ffmpeg -y -i <input> -vn -acodec libmp3lame -ab 192k -ar 44100 -ac 2 <output.mp3>`
-- Output file existence is verified.
+- Output file existence is verified
 
-### 5. Upload Stage
+### 5) ☁️ Upload Stage
 
-- `DummyApiClient.upload_mp3(file_path)` sends multipart form data (`audio/mpeg`).
-- HTTP exceptions are logged, but do not abort returning a result.
-- Return value is always generated by `get_mock_response(...)`.
+- `DummyApiClient.upload_mp3(file_path)` sends multipart form data (`audio/mpeg`)
+- HTTP exceptions are logged, but do not abort returning a result
+- Return value is always generated by `get_mock_response(...)`
 
-### 6. Final Reply
+### 6) ✅ Final Reply
 
-- `format_response(result)` builds the final report text.
-- The bot sends this text back to the user.
+- `format_response(result)` builds the final report text
+- The bot sends this text back to the user
 
-## Environment Variables
+---
+
+## 🔐 Environment Variables
 
 Based on `.env.example`:
 
-- `TELEGRAM_TOKEN`
-  - Telegram bot token from BotFather.
-- `DUMMY_API_URL`
-  - Upload destination URL.
-- `TMP_DIR`
-  - Directory for temporary media files.
-- `LOG_LEVEL`
-  - Logging threshold (for example: `INFO`, `DEBUG`, `WARNING`).
+- `TELEGRAM_TOKEN` — Telegram bot token from BotFather
+- `DUMMY_API_URL` — upload destination URL
+- `TMP_DIR` — directory for temporary media files
+- `LOG_LEVEL` — logging threshold (e.g. `INFO`, `DEBUG`, `WARNING`)
 
-## Local Development
+---
 
-### Prerequisites
+## 🧑‍💻 Local Development
 
-- Python 3.12+
+### ✅ Prerequisites
+
+- Python **3.12+**
 - `uv`
 - `ffmpeg` installed and available in `PATH`
 
-### Setup
+### 🛠️ Setup
 
 1. Copy env template:
    - `cp .env.example .env`
-2. Edit `.env` and set `TELEGRAM_TOKEN`.
+2. Edit `.env` and set `TELEGRAM_TOKEN`
 3. Install dependencies:
    - `uv sync`
 
-### Run
+### ▶️ Run
 
 - `uv run python -m bot`
 
-## Docker Usage
+---
 
-### Build and Run
+## 🐳 Docker Usage
+
+### 🏗️ Build and Run
 
 - `docker compose up -d --build`
 
-### Stop
+### 🛑 Stop
 
 - `docker compose down`
 
-### Logs
+### 📜 Logs
 
 - `docker compose logs -f bot`
 
-### Notes About Dockerfile
+### 🧩 Notes About the Dockerfile
 
 - Multi-stage build:
-  - Builder installs Python dependencies with `uv`.
-  - Runtime stage installs `ffmpeg` and copies project virtual environment.
-- Runtime uses a non-root user (`app`).
-- `TMP_DIR` defaults to `/app/storage/tmp` in container.
+  - Builder installs Python dependencies with `uv`
+  - Runtime stage installs `ffmpeg` and copies the project virtual environment
+- Runtime uses a non-root user (`app`)
+- `TMP_DIR` defaults to `/app/storage/tmp` in container
 
-## Tests
+---
 
-Tests are located in:
+## 🧪 Tests
 
-- `src/tests/`
+Tests are located in `src/tests/`.
 
 Core test areas include:
 
-- URL extraction and validation
-- Response formatter behavior
-- API client behavior with mocked HTTP interactions
-- Mock response payload shape
+- 🔎 URL extraction and validation
+- 🧾 Response formatter behavior
+- 🌐 API client behavior with mocked HTTP interactions
+- 🧩 Mock response payload shape
 
-## Error Handling Strategy
+---
 
-- Per-stage failures in URL workflow (download/convert/upload) are caught and sent to user with reason text.
-- Uncaught exceptions are handled by global error handler and converted to a generic safe user message.
-- Detailed exception data is preserved in logs.
+## 🛡️ Error Handling Strategy
 
-## Logging
+- Per-stage failures (download/convert/upload) are caught and reported to the user with a reason
+- Uncaught exceptions are handled by the global error handler and converted to a safe generic message
+- Detailed exception data is preserved in logs
+
+---
+
+## 🪵 Logging
 
 Format:
 
@@ -187,17 +201,21 @@ Output stream:
 
 - stdout
 
-## Current Limitations and Implementation Notes
+---
 
-- Real speech-to-text processing is not integrated yet.
-- Upload endpoint response content is currently ignored.
-- Result payload is generated by mock data helper.
-- Temporary file manager exists (`TemporaryFileManager`) and cleanup is invoked, but file paths are not currently registered during URL processing, so downloaded/converted files may remain unless managed externally.
+## ⚠️ Current Limitations / Notes
 
-## Future Improvements
+- Real speech-to-text processing is not integrated yet
+- Upload endpoint response content is currently ignored
+- Result payload is generated by mock data helper
+- Temporary file manager exists (`TemporaryFileManager`) and cleanup is invoked, but file paths are not currently registered during URL processing, so downloaded/converted files may remain unless cleaned externally
 
-- Integrate real API response parsing and validation.
-- Register temporary files for deterministic cleanup.
-- Add end-to-end integration tests for downloader + converter flow.
-- Add stricter URL/domain policies if needed.
-- Add retry policies and timeouts tuned per external dependency.
+---
+
+## 🗺️ Future Improvements
+
+- Integrate real API response parsing and validation
+- Register temporary files for deterministic cleanup
+- Add end-to-end integration tests for downloader + converter flow
+- Add stricter URL/domain policies if needed
+- Add retry policies and timeouts tuned per external dependency
