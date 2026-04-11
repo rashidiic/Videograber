@@ -1,7 +1,9 @@
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
+
 import httpx
-from bot.services.api_client import DummyApiClient
+
+from services.api_client import DummyApiClient
 
 
 class TestDummyApiClient:
@@ -15,7 +17,7 @@ class TestDummyApiClient:
         mock_cm.__aenter__ = AsyncMock(return_value=mock_cm)
         mock_cm.__aexit__ = AsyncMock(return_value=False)
         mock_cm.post = mock_post
-        with patch("bot.services.api_client.httpx.AsyncClient", return_value=mock_cm):
+        with patch("services.api_client.httpx.AsyncClient", return_value=mock_cm):
             result = await client.upload_mp3(mp3_file)
         assert isinstance(result, dict)
         assert result["status"] == "ok"
@@ -33,6 +35,6 @@ class TestDummyApiClient:
         mock_cm.__aenter__ = AsyncMock(return_value=mock_cm)
         mock_cm.__aexit__ = AsyncMock(return_value=False)
         mock_cm.post = mock_post
-        with patch("bot.services.api_client.httpx.AsyncClient", return_value=mock_cm):
+        with patch("services.api_client.httpx.AsyncClient", return_value=mock_cm):
             result = await client.upload_mp3(mp3_file)
         assert result["status"] == "ok"

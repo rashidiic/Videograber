@@ -1,4 +1,4 @@
-from bot.services.mock_data import get_mock_response
+from services.mock_data import get_mock_response
 
 
 class TestGetMockResponse:

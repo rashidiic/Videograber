@@ -1,5 +1,7 @@
 from pathlib import Path
+
 import httpx
+
 from bot.logging_config import get_logger
 from services.mock_data import get_mock_response
 

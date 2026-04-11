@@ -1,7 +1,9 @@
 from pathlib import Path
+
 from telegram import Update
 from telegram.ext import ContextTypes, MessageHandler, filters
-from bot.config import Settings
+
+from bot.config import get_settings
 from bot.handlers.start import HELP_TEXT
 from bot.logging_config import get_logger
 from services.api_client import DummyApiClient
@@ -24,19 +26,25 @@ class URLHandler(MessageHandler):
 
         if not url:
             await update.message.reply_text(
-                "I could not find a link in your message.\n\n" f"{HELP_TEXT}"
+                "❌ I could not find a link in your message.\n\n" f"{HELP_TEXT}",
+                parse_mode="HTML"
             )
             return
 
         if not is_valid_url(url):
             await update.message.reply_text(
-                f"This does not look like a valid link:\n{url}\n\n"
-                "Please send a URL that starts with http:// or https://."
+                f"⚠️ This does not look like a valid link:\n<code>{url}</code>\n\n"
+                "Please send a URL that starts with <code>http://</code> or <code>https://</code>",
+                parse_mode="HTML"
             )
             return
 
-        settings = Settings()
-        await update.message.reply_text(f"Got it! Downloading video from:\n{url}")
+        settings = get_settings()
+        await update.message.reply_text(
+            f"⏳ <b>Got it!</b> Downloading video...\n\n"
+            f"🔗 <code>{url}</code>",
+            parse_mode="HTML"
+        )
         logger.info("Processing URL from user %s: %s", update.effective_user.id, url)
 
         tmp_file_manager = TemporaryFileManager(settings.tmp_dir)
@@ -44,20 +52,30 @@ class URLHandler(MessageHandler):
             video_path: Path | None = None
             try:
                 video_path = await download_video(url, settings.tmp_dir)
-                await update.message.reply_text("Video downloaded. Converting to MP3...")
+                tmp_file_manager.register(video_path)
+                await update.message.reply_text("✅ Video downloaded!\n⏳ Converting to MP3...")
             except Exception as exc:
                 logger.exception("Download failed for %s", url)
-                await update.message.reply_text(f"Failed to download the video.\nReason: {exc}")
+                await update.message.reply_text(
+                    f"❌ <b>Failed to download the video</b>\n\n"
+                    f"<code>{str(exc)[:100]}</code>",
+                    parse_mode="HTML"
+                )
                 return
 
             mp3_path: Path | None = None
             try:
                 mp3_path = await convert_to_mp3(video_path, settings.tmp_dir)
-                await update.message.reply_text("Audio is ready! Sending it for processing...")
+                tmp_file_manager.register(mp3_path)
+                await update.message.reply_text(
+                    "✅ Audio converted to MP3!\n⏳ Processing with AI..."
+                )
             except Exception as exc:
                 logger.exception("Conversion failed for %s", video_path)
                 await update.message.reply_text(
-                    f"Failed to convert video to MP3.\nReason: {exc}"
+                    f"❌ <b>Failed to convert video to MP3</b>\n\n"
+                    f"<code>{str(exc)[:100]}</code>",
+                    parse_mode="HTML"
                 )
                 return
 
@@ -67,11 +85,13 @@ class URLHandler(MessageHandler):
             except Exception as exc:
                 logger.exception("API upload failed for %s", mp3_path)
                 await update.message.reply_text(
-                    f"Error while sending data to the server.\nReason: {exc}"
+                    f"❌ <b>Error while processing</b>\n\n"
+                    f"<code>{str(exc)[:100]}</code>",
+                    parse_mode="HTML"
                 )
                 return
 
             reply = format_response(result)
-            await update.message.reply_text(reply)
+            await update.message.reply_text(reply, parse_mode="HTML")
         finally:
             tmp_file_manager.cleanup()

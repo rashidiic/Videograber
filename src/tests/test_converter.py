@@ -1,4 +1,4 @@
-from bot.utils.formatters import format_response
+from utils.formatters import format_response
 
 
 class TestFormatResponse:

@@ -1,4 +1,4 @@
-from bot.utils.url_validator import extract_url, is_valid_url
+from utils.url_validator import extract_url, is_valid_url
 
 
 class TestExtractUrl:
